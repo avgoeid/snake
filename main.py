@@ -2,6 +2,7 @@ from os import system
 from enum import Enum
 from time import sleep
 from msvcrt import getch, kbhit
+from random import randint, choice
 
 from colorama import init
 
@@ -44,7 +45,10 @@ class Point:
     def clear(self):
         self.symbol = ' '
         self.draw()
-
+    
+    def is_hit(self, point):
+        return self.x == point.x and self.y == point.y
+    
     def __repr__(self):
         return 'Point({}, {}, {})'.format(self.x, self.y, self.symbol)
 
@@ -75,6 +79,14 @@ class Area(Figure):
         right = VerticalalLine(right_bottom_x, left_top_y + 1, right_bottom_y - 1, symbol)
         self.points = top.points + left.points + bottom.points + right.points
 
+    def is_hit(self, snake):
+        snake_head = snake.get_next_point()
+        for point in self.points:
+            if snake_head.is_hit(point):
+                return True
+        else:
+            return False
+
 class Snake(Figure):
 
     def __init__(self, tail, length, direction):
@@ -92,33 +104,73 @@ class Snake(Figure):
     
     def get_next_point(self):
         return Point(self.points[-1]).move(1, self.direction)
-        
-        
     
-def set_console_size(cols, lines):
-    system('mode con: cols={} lines={}'.format(cols, lines))                
+    def eat(self, food):
+        head = self.get_next_point()
+        if head.is_hit(food):
+            food.symbol = head.symbol
+            food.draw()
+            self.points.insert(0, food)
+            return True
+        else:
+            return False
 
+    def is_hit_tail(self):
+        head = self.get_next_point()
+        for point in self.points:
+            if head.is_hit(point):
+                return True
+        else:
+            return False
+        
+    def handle_key(self, key):    
+        if key == Directions.top.value:
+            self.direction = Directions.top
+        elif key == Directions.right.value:
+            self.direction = Directions.right
+        elif key == Directions.bottom.value:
+            self.direction = Directions.bottom
+        elif key == Directions.left.value:
+            self.direction = Directions.left
+    
+class FoodCreator:
+    
+    def __init__(self, area_width, area_height, symbol):
+        self.area_width = area_width
+        self.area_height = area_height
+        self.symbol = symbol
+    
+    def create_food(self):
+        x = randint(3, self.area_width - 3)
+        y = randint(3, self.area_height - 3)
+        return Point(x, y, self.symbol)
+    
+def make_game(cols=80, lines=40):
+
+    def game_over(text):
+        pass
+    
+    # set console size
+    system('mode con: cols={} lines={}'.format(cols, lines))
+
+    area = Area(1, 1, cols, lines - 2, '#')
+    foor_creator = FoodCreator(cols, lines, '$')
+    food = foor_creator.create_food()
+    snake_head = Point(randint(5, cols - 4), randint(5, lines - 4), '*')
+    snake = Snake(snake_head, 3, choice((Directions.top, Directions.right, Directions.bottom, Directions.left)))
+    [i.draw() for i in (area, food, snake)]
+
+    while(True):
+        # check key press
+        if kbhit():
+            snake.handle_key(getch())
+        if area.is_hit(snake) or snake.is_hit_tail():
+            break
+        if snake.eat(food):
+            food = foor_creator.create_food()
+            food.draw()
+        sleep(0.2)
+        snake.move()
     
 if __name__ == '__main__':
-    set_console_size(80, 40)
-    Area(1, 1, 80, 38, '#').draw()
-    s1 = Snake(Point(5, 6, '@'), 7, Directions.right)
-    s1.draw()
-    '''for _ in range(10):
-        s1.move()
-        sleep(0.3)
-    '''
-    while(True):
-        if kbhit():
-            key = getch()
-            if key == Directions.top.value:
-                s1.direction = Directions.top
-            elif key == Directions.right.value:
-                s1.direction = Directions.right
-            elif key == Directions.bottom.value:
-                s1.direction = Directions.bottom
-            elif key == Directions.left.value:
-                s1.direction = Directions.left
-        sleep(0.3)
-        s1.move()
-    #input()
+    make_game()
