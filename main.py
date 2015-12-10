@@ -16,6 +16,17 @@ class Directions(Enum):
     bottom = b's'
     left = b'a'
 
+    OPPOSITE = {
+            top: bottom,
+            right: left,
+            bottom: top,
+            left: right,
+        }
+    
+    @staticmethod
+    def opposite(direction):
+        return Directions.OPPOSITE.value[direction]
+
 class Point:
     
     def __init__(self, *args):
@@ -123,8 +134,10 @@ class Snake(Figure):
         else:
             return False
         
-    def handle_key(self, key):    
-        if key == Directions.top.value:
+    def handle_key(self, key):
+        if key == Directions.opposite(self.direction.value):
+            pass
+        elif key == Directions.top.value:
             self.direction = Directions.top
         elif key == Directions.right.value:
             self.direction = Directions.right
@@ -145,31 +158,49 @@ class FoodCreator:
         y = randint(3, self.area_height - 3)
         return Point(x, y, self.symbol)
     
-def make_game(cols=80, lines=40):
+def make_game(cols=40, lines=20):
 
     def game_over(text):
-        pass
-    
+        # find display center
+        x = cols // 2 - len(text) // 2
+        y = lines // 2
+        print('\033[{};{}H{}'.format(y, x, text))
+        input()
+
     # set console size
     system('mode con: cols={} lines={}'.format(cols, lines))
 
+    # lines - 2 , because going beyond screen
     area = Area(1, 1, cols, lines - 2, '#')
+
     foor_creator = FoodCreator(cols, lines, '$')
     food = foor_creator.create_food()
+
     snake_head = Point(randint(5, cols - 4), randint(5, lines - 4), '*')
-    snake = Snake(snake_head, 3, choice((Directions.top, Directions.right, Directions.bottom, Directions.left)))
+    snake = Snake(snake_head, 3, choice([direction for direction in Directions.__members__.values()]))
+    
     [i.draw() for i in (area, food, snake)]
 
+    game_speed = 0.3
+
+    score = 0
+
     while(True):
-        # check key press
+        # check is key press
         if kbhit():
             snake.handle_key(getch())
+
         if area.is_hit(snake) or snake.is_hit_tail():
+            game_over('THE END')
             break
+
         if snake.eat(food):
+            score += 25
             food = foor_creator.create_food()
             food.draw()
-        sleep(0.2)
+            game_speed -= 0.03
+            
+        sleep(game_speed)
         snake.move()
     
 if __name__ == '__main__':
