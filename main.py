@@ -160,23 +160,45 @@ class FoodCreator:
     
 def make_game(cols=40, lines=20):
 
-    def game_over(text):
+    X_CENTER = cols // 2
+    Y_CENTER = lines // 2
+    
+    def print_text(text_lines):
         # find display center
-        x = cols // 2 - len(text) // 2
-        y = lines // 2
-        print('\033[{};{}H{}'.format(y, x, text))
-        input()
+        x = X_CENTER
+        y = Y_CENTER - len(text_lines) // 2
+        for text in text_lines:
+            print('\033[{};{}H{}'.format(y, x - len(text) // 2, text))
+            y += 1
+        while True:
+            if getch() == b'\r':
+                break
 
     # set console size
     system('mode con: cols={} lines={}'.format(cols, lines))
 
+    # greetings
+    print_text(
+        ['**SNAKE**',
+         '*' * 9,
+         'w - up   ',
+         'd - right',
+         's - down',
+         'a - left',
+         '',
+         'press ENTER']
+    )
+
+    # clean screen
+    system('cls')
+    
     # lines - 2 , because going beyond screen
     area = Area(1, 1, cols, lines - 2, '#')
 
     foor_creator = FoodCreator(cols, lines, '$')
     food = foor_creator.create_food()
 
-    snake_head = Point(randint(5, cols - 4), randint(5, lines - 4), '*')
+    snake_head = Point(X_CENTER, Y_CENTER, '*')
     snake = Snake(snake_head, 3, choice([direction for direction in Directions.__members__.values()]))
     
     [i.draw() for i in (area, food, snake)]
@@ -184,14 +206,22 @@ def make_game(cols=40, lines=20):
     game_speed = 0.3
 
     score = 0
-
+    
     while(True):
         # check is key press
         if kbhit():
             snake.handle_key(getch())
 
         if area.is_hit(snake) or snake.is_hit_tail():
-            game_over('THE END')
+            # clean screen
+            system('cls')
+            print_text(
+                ['THE END',
+                 '',
+                 'score - %r' % score,
+                 '',
+                 'press ENTER',]
+                )
             break
 
         if snake.eat(food):
