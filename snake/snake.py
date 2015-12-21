@@ -13,7 +13,7 @@ init()
 
 class Directions(Enum):
 
-    top = b'w' 
+    top = b'w'
     right = b'd'
     bottom = b's'
     left = b'a'
@@ -25,7 +25,6 @@ class Directions(Enum):
             left: right,
         }
 
-    @staticmethod
     def opposite(direction):        
         return Directions.OPPOSITE.value[direction]
 
@@ -93,7 +92,7 @@ class Point:
 
     def is_hit(self, point):
         return self.x == point.x and self.y == point.y
-    
+
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y and self.symbol == other.symbol
     
@@ -103,23 +102,11 @@ class Point:
 class Figure:
 
     def __init__(self):
-        self.__points = list()
+        self.points = list()
 
     def draw(self):
         [point.draw() for point in self.points]
 
-    @property
-    def points(self):
-        return self.__points
-    
-    @points.setter
-    def points(self, points):
-        for point in points:
-            if not isinstance(point, Point):
-                raise ValueError('Must be Points list.')
-        else:
-            self.__points = points
-            
 class VerticalalLine(Figure):
 
     def __init__(self, x, y_bottom, y_top, symbol):
@@ -169,8 +156,8 @@ class Snake(Figure):
         head = self.get_next_point()
         if head.is_hit(food):
             food.symbol = head.symbol
-            self.points.insert(0, food)
             food.draw()
+            self.points.insert(0, food)
             return True
         else:
             return False
@@ -202,24 +189,19 @@ class FoodCreator:
         self.area_height = area_height
         self.symbol = symbol
 
-    def create_food(self, area, snake):
-        while(True):
-            x = randint(2, self.area_width - 2)
-            y = randint(2, self.area_height - 2)
-            point = Point(x, y, self.symbol)
-            if point not in area.points and point not in snake.points:
-                return point
+    def create_food(self):
+        x = randint(3, self.area_width - 3)
+        y = randint(3, self.area_height - 3)
+        return Point(x, y, self.symbol)
 
 def make_game(cols=40, lines=20):
-    
-    # find display center
+
     X_CENTER = cols // 2
     Y_CENTER = lines // 2
-    IS_PAUSE = False
 
-    def print_center_text(text_lines):
-        # clear screen
-        system('cls')        
+    def print_text(text_lines):
+        # find display center
+        system('cls')
         x = X_CENTER
         y = Y_CENTER - len(text_lines) // 2
         for text in text_lines:
@@ -230,77 +212,59 @@ def make_game(cols=40, lines=20):
                 system('cls')
                 break
 
-    def print_low_text(text_lines):
-        print('\033[{};{}H{}'.format(lines - 1, X_CENTER - len(text_lines) // 2, text_lines))
-    
     # set console size
     system('mode con: cols={} lines={}'.format(cols, lines))
 
     # greetings
-    print_center_text(
-        ['*** SNAKE ***',
-         '*' * 13,
-         '',
-         'w - UP   ',
-         'd - RIGHT',
-         's - DOWN',
-         'a - LEFT',
-         'space - PAUSE',
+    print_text(
+        ['**SNAKE**',
+         '*' * 9,
+         'w - up   ',
+         'd - right',
+         's - down',
+         'a - left',
          '',
          'press ENTER']
     )
-    
-    game_speed = 0.3
 
-    score = 0
-    
-    print_low_text('SCORE - {}'.format(score))
-    
-    # lines - 3 , because going beyond screen
-    area = Area(1, 1, cols, lines - 3, '#')
+    # lines - 2 , because going beyond screen
+    area = Area(1, 1, cols, lines - 2, '#')
+
+    foor_creator = FoodCreator(cols, lines, '$')
+    food = foor_creator.create_food()
 
     snake_head = Point(X_CENTER, Y_CENTER, '*')
     snake = Snake(snake_head, 3, choice((Directions.top, Directions.right, Directions.bottom, Directions.left)))
-    
-    foor_creator = FoodCreator(cols, lines - 3, '$')
-    food = foor_creator.create_food(area, snake)
-    
+
     [i.draw() for i in (area, food, snake)]
+
+    game_speed = 0.3
+
+    score = 0
 
     while(True):
         # check is key press
         if kbhit():
-            pressed_key = getch()
-            if pressed_key == b' ':
-                IS_PAUSE = not IS_PAUSE
-            if not IS_PAUSE:
-                print_low_text(' ' * 15)
-                print_low_text('SCORE - {}'.format(score))
-                snake.handle_key(pressed_key)
-            else:
-                print_low_text(' ' * 15)
-                print_low_text('*** PAUSE ***')
+            snake.handle_key(getch())
 
-        if not IS_PAUSE:
-            if area.is_hit(snake) or snake.is_hit_tail():
-                print_center_text(
-                    ['THE END',
-                     '',
-                     'SCORE - %r' % score,
-                     '',
-                     'press ENTER',]
-                    )
-                break
+        if area.is_hit(snake) or snake.is_hit_tail():
+            print_text(
+                ['THE END',
+                 '',
+                 'score - %r' % score,
+                 '',
+                 'press ENTER',]
+                )
+            break
 
-            if snake.eat(food):
-                score += 25
-                food = foor_creator.create_food(area, snake)
-                food.draw()
-                game_speed -= 0.015
-                print_low_text('SCORE - {}'.format(score))
+        if snake.eat(food):
+            score += 25
+            food = foor_creator.create_food()
+            food.draw()
+            game_speed -= 0.015
 
-            sleep(game_speed)
-            snake.move()
+        sleep(game_speed)
+        snake.move()
     system('mode con: cols={} lines={}'.format(80, 25))
     
 if __name__ == '__main__':
