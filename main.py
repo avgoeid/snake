@@ -1,5 +1,3 @@
-__author__ = 'holovenkom'
-
 from os import system
 from enum import Enum
 from time import sleep
@@ -286,7 +284,7 @@ def make_game(cols=40, lines=20):
                 print_center_text(
                     ['THE END',
                      '',
-                     'SCORE - %r' % score,
+                     'SCORE - {}'.format(score),
                      '',
                      'press ENTER',]
                     )
@@ -296,11 +294,12 @@ def make_game(cols=40, lines=20):
                 score += 25
                 food = foor_creator.create_food(snake)
                 food.draw()
-                game_speed -= 0.015
+                game_speed -= game_speed * 0.05
                 print_low_text('SCORE - {}'.format(score))
 
             sleep(game_speed)
             snake.move()
+    # set default console size
     system('mode con: cols={} lines={}'.format(80, 25))
     
 if __name__ == '__main__':
