@@ -152,6 +152,7 @@ class Snake(Figure):
     def __init__(self, tail, length, direction):
         super().__init__()
         self.direction = direction
+        self.symbol = tail.symbol
         for i in range(length):
             self.points.append(Point(tail).move(i, self.direction))
 
@@ -202,13 +203,12 @@ class FoodCreator:
         self.area_height = area_height
         self.symbol = symbol
 
-    def create_food(self, area, snake):
+    def create_food(self, snake):
         while(True):
             x = randint(2, self.area_width - 2)
             y = randint(2, self.area_height - 2)
-            point = Point(x, y, self.symbol)
-            if point not in area.points and point not in snake.points:
-                return point
+            if Point(x, y, snake.symbol) not in snake.points:
+                return Point(x, y, self.symbol)
 
 def make_game(cols=40, lines=20):
     
@@ -263,7 +263,7 @@ def make_game(cols=40, lines=20):
     snake = Snake(snake_head, 3, choice((Directions.top, Directions.right, Directions.bottom, Directions.left)))
     
     foor_creator = FoodCreator(cols, lines - 3, '$')
-    food = foor_creator.create_food(area, snake)
+    food = foor_creator.create_food(snake)
     
     [i.draw() for i in (area, food, snake)]
 
@@ -294,7 +294,7 @@ def make_game(cols=40, lines=20):
 
             if snake.eat(food):
                 score += 25
-                food = foor_creator.create_food(area, snake)
+                food = foor_creator.create_food(snake)
                 food.draw()
                 game_speed -= 0.015
                 print_low_text('SCORE - {}'.format(score))
