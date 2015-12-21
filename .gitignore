@@ -1,5 +1,8 @@
+# Python compiled files
+/*.py[co1]
+
 # Virtual environment
 /venv/
 
-# Compiled files
+# Folder with compiled files
 /__pycache__/
