@@ -328,7 +328,7 @@ def make_game(cols=40, lines=23, step=10):
          'press ENTER']
     )
     
-    game_speed = 0.3
+    game_speed = 0.2
 
     score = 0
     
@@ -340,9 +340,16 @@ def make_game(cols=40, lines=23, step=10):
 
     snake_head_x = choice(range(round(step // 2), cols, step))
     snake_head_y = choice(range(round(step // 2), lines - 3, step))
-    snake_direction = choice((Directions.top, Directions.right, Directions.bottom, Directions.left))
+    # find good direction
+    top = snake_head_y - max([point.y for point in area.points if point.x == snake_head_x and point.y < snake_head_y])
+    bottom = min([point.y for point in area.points if point.x == snake_head_x and point.y > snake_head_y]) - snake_head_y
+    left = snake_head_x - max([point.x for point in area.points if point.y == snake_head_y and point.x < snake_head_x])
+    right = min([point.x for point in area.points if point.y == snake_head_y and point.x > snake_head_x]) - snake_head_x
+    longer_way = max(top, bottom, left, right)
+    good_direction = {top:Directions.top, bottom:Directions.bottom, left:Directions.left, right:Directions.right}
+    # creat sneak randomly
     snake_head = Point(snake_head_x, snake_head_y, 'o')
-    snake = Snake(snake_head, '*', 3, snake_direction)
+    snake = Snake(snake_head, '*', 3, good_direction[longer_way])
     
     foor_creator = FoodCreator(cols, lines - 3, '$')
     food = foor_creator.create_food(snake, area)
