@@ -138,6 +138,15 @@ class Figure:
     def kill_clone_points(self):
         self.__points = list(set(self.__points))
         
+    def __getitem__(self, key):
+        return self.__points[key]
+        
+    def __setitem__(self, key, value):
+        if isinstance(value, Point):
+            self.__points[key] = value
+        else:
+            raise ValueError('Must be Points list.')
+        
 class VerticalalLine(Figure):
 
     def __init__(self, x, y_bottom, y_top, symbol):
@@ -211,29 +220,33 @@ class Area(Figure):
     
 class Snake(Figure):
 
-    def __init__(self, tail, length, direction):
+    def __init__(self, head, tail_symbol, length, direction):
         super().__init__()
         self.direction = direction
-        self.symbol = tail.symbol
-        for i in range(length):
-            self.points.append(Point(tail).move(i, self.direction))
+        self.head_symbol = head.symbol
+        self.tail_symbol = tail_symbol
+        for i in range(1, length):
+            self.points.append(Point(head.x, head.y, tail_symbol).move(i, self.direction))
+        self.points.append(head.move(length, self.direction))
 
     def move(self):
-        tail = self.points.pop(0)
         head = self.get_next_point()
+        tail = self.points.pop(0)
+        after_head = self.points[-1] 
+        after_head.symbol = self.tail_symbol
         self.points.append(head)
         tail.clear()
         head.draw()
+        after_head.draw()
 
     def get_next_point(self):
         return Point(self.points[-1]).move(1, self.direction)
-
+        
     def eat(self, food):
         head = self.get_next_point()
         if head.is_hit(food):
             food.symbol = head.symbol
             self.points.insert(0, food)
-            food.draw()
             return True
         else:
             return False
@@ -269,7 +282,9 @@ class FoodCreator:
         while(True):
             x = randint(2, self.area_width - 2)
             y = randint(2, self.area_height - 2)
-            if Point(x, y, snake.symbol) not in snake.points and Point(x, y, area.symbol) not in area.points:
+            if (Point(x, y, snake.head_symbol) not in snake.points and 
+                Point(x, y, snake.tail_symbol) not in snake.points and
+                Point(x, y, area.symbol) not in area.points):
                 return Point(x, y, self.symbol)
 
 def make_game(cols=40, lines=23, step=10):
@@ -326,8 +341,8 @@ def make_game(cols=40, lines=23, step=10):
     snake_head_x = choice(range(round(step // 2), cols, step))
     snake_head_y = choice(range(round(step // 2), lines - 3, step))
     snake_direction = choice((Directions.top, Directions.right, Directions.bottom, Directions.left))
-    snake_head = Point(snake_head_x, snake_head_y, '*')
-    snake = Snake(snake_head, 3, snake_direction)
+    snake_head = Point(snake_head_x, snake_head_y, 'o')
+    snake = Snake(snake_head, '*', 3, snake_direction)
     
     foor_creator = FoodCreator(cols, lines - 3, '$')
     food = foor_creator.create_food(snake, area)
@@ -373,4 +388,4 @@ def make_game(cols=40, lines=23, step=10):
     system('mode con: cols={} lines={}'.format(80, 25))
     
 if __name__ == '__main__':
-    make_game(60, 33)
+    make_game()
