@@ -2,7 +2,7 @@ from os import system
 from enum import Enum
 from time import sleep
 from msvcrt import getch, kbhit
-from random import randint, choice
+from random import randint, choice, shuffle, randrange
 
 from colorama import init
 
@@ -23,7 +23,6 @@ class Directions(Enum):
             left: right,
         }
 
-    @staticmethod
     def opposite(direction):        
         return Directions.OPPOSITE.value[direction]
 
@@ -97,6 +96,9 @@ class Point:
     
     def __repr__(self):
         return 'Point({}, {}, {})'.format(self.x, self.y, self.symbol)
+        
+    def __hash__(self):
+        return hash(self.x) ^ hash(self.y)
 
 class Figure:
 
@@ -106,18 +108,36 @@ class Figure:
     def draw(self):
         [point.draw() for point in self.points]
 
+    def is_points(self, points):
+        for point in points:
+            if not isinstance(point, Point):
+                return False
+        else:
+            return True
+    
     @property
     def points(self):
         return self.__points
     
     @points.setter
     def points(self, points):
-        for point in points:
-            if not isinstance(point, Point):
+        if not self.is_points(points):
                 raise ValueError('Must be Points list.')
         else:
             self.__points = points
             
+    def clear(self):
+        self.__points.clear()
+        
+    def add(self, points):
+        if not self.is_points(points):
+                raise ValueError('Must be Points list.')
+        else:
+            self.__points.extend(points)
+        
+    def kill_clone_points(self):
+        self.__points = list(set(self.__points))
+        
 class VerticalalLine(Figure):
 
     def __init__(self, x, y_bottom, y_top, symbol):
@@ -135,8 +155,12 @@ class Area(Figure):
         bottom = HorizontalLine(left_top_x, right_bottom_x, right_bottom_y, symbol)
         left = VerticalalLine(left_top_x, left_top_y + 1, right_bottom_y - 1, symbol)
         right = VerticalalLine(right_bottom_x, left_top_y + 1, right_bottom_y - 1, symbol)
+        
         self.points = top.points + left.points + bottom.points + right.points
-
+        self.symbol = symbol
+        self.width = right_bottom_x - left_top_x
+        self.height = right_bottom_y - left_top_y
+ 
     def is_hit(self, snake):
         snake_head = snake.get_next_point()
         for point in self.points:
@@ -144,7 +168,47 @@ class Area(Figure):
                 return True
         else:
             return False
-
+    
+    def make_maze(self, step=10):
+        w = round(self.width / step)
+        h = round(self.height / step)
+        vis = [[0] * w + [1] for _ in range(h)] + [[1] * (w + 1)]
+        ver = [["|  "] * w + ['|'] for _ in range(h)] + [[]]
+        hor = [["+--"] * w + ['+'] for _ in range(h + 1)]
+        
+        def walk(x, y):
+            vis[y][x] = 1
+     
+            d = [(x - 1, y), (x, y + 1), (x + 1, y), (x, y - 1)]
+            shuffle(d)
+            for (xx, yy) in d:
+                if vis[yy][xx]: continue
+                if xx == x: hor[max(y, yy)][x] = "+  "
+                if yy == y: ver[y][max(x, xx)] = "   "
+                walk(xx, yy)
+     
+        walk(randrange(w), randrange(h))
+        
+        for line_number in range(1, len(hor) - 1):
+            for item_number in range(len(hor[line_number])):
+                if hor[line_number][item_number] == "+--":
+                    x_left = item_number * step
+                    x_right = (item_number + 1) * step
+                    y = line_number * step
+                    line = HorizontalLine(x_left, x_right, y, self.symbol)
+                    self.add(line.points)
+    
+        for line_number in range(len(ver) ):
+            for item_number in range(1, len(ver[line_number]) - 1):
+                if ver[line_number][item_number] == "|  ":
+                    x = item_number * step
+                    y_bottom = line_number * step
+                    y_top = (line_number + 1) * step
+                    line = VerticalalLine(x, y_bottom, y_top, self.symbol)
+                    self.add(line.points)
+    
+        self.kill_clone_points()
+    
 class Snake(Figure):
 
     def __init__(self, tail, length, direction):
@@ -201,25 +265,26 @@ class FoodCreator:
         self.area_height = area_height
         self.symbol = symbol
 
-    def create_food(self, snake):
+    def create_food(self, snake, area):
         while(True):
             x = randint(2, self.area_width - 2)
             y = randint(2, self.area_height - 2)
-            if Point(x, y, snake.symbol) not in snake.points:
+            if Point(x, y, snake.symbol) not in snake.points and Point(x, y, area.symbol) not in area.points:
                 return Point(x, y, self.symbol)
 
-def make_game(cols=40, lines=20):
+def make_game(cols=40, lines=23, step=10):
     
     # find display center
-    X_CENTER = cols // 2
-    Y_CENTER = lines // 2
-    IS_PAUSE = False
+    x_center = cols // 2
+    y_center = lines // 2
+    is_pause = False
+    step = step
 
     def print_center_text(text_lines):
         # clear screen
         system('cls')        
-        x = X_CENTER
-        y = Y_CENTER - len(text_lines) // 2
+        x = x_center
+        y = y_center - len(text_lines) // 2
         for text in text_lines:
             print('\033[{};{}H{}'.format(y, x - len(text) // 2, text))
             y += 1
@@ -229,7 +294,7 @@ def make_game(cols=40, lines=20):
                 break
 
     def print_low_text(text_lines):
-        print('\033[{};{}H{}'.format(lines - 1, X_CENTER - len(text_lines) // 2, text_lines))
+        print('\033[{};{}H{}'.format(lines - 1, x_center - len(text_lines) // 2, text_lines))
     
     # set console size
     system('mode con: cols={} lines={}'.format(cols, lines))
@@ -256,12 +321,16 @@ def make_game(cols=40, lines=20):
     
     # lines - 3 , because going beyond screen
     area = Area(1, 1, cols, lines - 3, '#')
+    area.make_maze(step)
 
-    snake_head = Point(X_CENTER, Y_CENTER, '*')
-    snake = Snake(snake_head, 3, choice((Directions.top, Directions.right, Directions.bottom, Directions.left)))
+    snake_head_x = choice(range(round(step // 2), cols, step))
+    snake_head_y = choice(range(round(step // 2), lines - 3, step))
+    snake_direction = choice((Directions.top, Directions.right, Directions.bottom, Directions.left))
+    snake_head = Point(snake_head_x, snake_head_y, '*')
+    snake = Snake(snake_head, 3, snake_direction)
     
     foor_creator = FoodCreator(cols, lines - 3, '$')
-    food = foor_creator.create_food(snake)
+    food = foor_creator.create_food(snake, area)
     
     [i.draw() for i in (area, food, snake)]
 
@@ -270,8 +339,8 @@ def make_game(cols=40, lines=20):
         if kbhit():
             pressed_key = getch()
             if pressed_key == b' ':
-                IS_PAUSE = not IS_PAUSE
-            if not IS_PAUSE:
+                is_pause = not is_pause
+            if not is_pause:
                 print_low_text(' ' * 15)
                 print_low_text('SCORE - {}'.format(score))
                 snake.handle_key(pressed_key)
@@ -279,7 +348,7 @@ def make_game(cols=40, lines=20):
                 print_low_text(' ' * 15)
                 print_low_text('*** PAUSE ***')
 
-        if not IS_PAUSE:
+        if not is_pause:
             if area.is_hit(snake) or snake.is_hit_tail():
                 print_center_text(
                     ['THE END',
@@ -292,15 +361,16 @@ def make_game(cols=40, lines=20):
 
             if snake.eat(food):
                 score += 25
-                food = foor_creator.create_food(snake)
+                food = foor_creator.create_food(snake, area)
                 food.draw()
                 game_speed -= game_speed * 0.05
                 print_low_text('SCORE - {}'.format(score))
 
             sleep(game_speed)
             snake.move()
+    
     # set default console size
     system('mode con: cols={} lines={}'.format(80, 25))
     
 if __name__ == '__main__':
-    make_game()
+    make_game(60, 33)
